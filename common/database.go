@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"owlllovo/ginessential/model"
 
+	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -11,8 +12,8 @@ import (
 var DB *gorm.DB
 
 func InitDB() *gorm.DB {
-	// driverName := "mysql"
-	host := "localhost"
+	// driverName := viper.GetString("datasource.driverName")
+	host := viper.GetString("datasource.localhost")
 	port := "3306"
 	database := "ginessential"
 	username := "root"

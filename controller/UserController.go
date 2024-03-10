@@ -4,7 +4,9 @@ import (
 	"log"
 	"net/http"
 	"owlllovo/ginessential/common"
+	"owlllovo/ginessential/dto"
 	"owlllovo/ginessential/model"
+	"owlllovo/ginessential/response"
 	"owlllovo/ginessential/util"
 
 	"github.com/gin-gonic/gin"
@@ -23,11 +25,11 @@ func Register(ctx *gin.Context) {
 	// data verify
 
 	if len(telephone) != 11 {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "Phone number wrong"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Phone number should be 11 digits")
 		return
 	}
 	if len(password) < 6 {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "Password too weak"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Password too weak")
 		return
 	}
 	if len(name) == 0 {
@@ -39,7 +41,7 @@ func Register(ctx *gin.Context) {
 	// check phone number
 
 	if isTelephoneExist(DB, telephone) {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "User exist"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "User exist")
 		return
 	}
 
@@ -47,7 +49,7 @@ func Register(ctx *gin.Context) {
 
 	hasedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 500, "msg": "Encryption error"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 500, nil, "Encryption error")
 		return
 	}
 	newUser := model.User{
@@ -58,10 +60,7 @@ func Register(ctx *gin.Context) {
 	DB.Create(&newUser)
 
 	// return result
-	ctx.JSON(200, gin.H{
-		"code": 200,
-		"msg":  "Register Success",
-	})
+	response.Success(ctx, nil, "Register Success")
 }
 
 func Login(ctx *gin.Context) {
@@ -111,17 +110,13 @@ func Login(ctx *gin.Context) {
 	}
 
 	// return result
-
-	ctx.JSON(200, gin.H{
-		"code": 200,
-		"data": gin.H{"token": token},
-		"msg":  "Login Success",
-	})
+	response.Success(ctx, gin.H{"token": token}, "Login Success")
 }
 
 func Info(ctx *gin.Context) {
 	user, _ := ctx.Get("user")
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"user": user}})
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"user": dto.ToUserDto(user.(model.User))}})
 }
 
 func isTelephoneExist(db *gorm.DB, telephone string) bool {
