@@ -103,7 +103,12 @@ func Login(ctx *gin.Context) {
 
 	// send token
 
-	token := "111"
+	token, err := common.ReleaseToken(user)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "System Error"})
+		log.Printf("token generate error: %v", err)
+		return
+	}
 
 	// return result
 
@@ -112,6 +117,11 @@ func Login(ctx *gin.Context) {
 		"data": gin.H{"token": token},
 		"msg":  "Login Success",
 	})
+}
+
+func Info(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"user": user}})
 }
 
 func isTelephoneExist(db *gorm.DB, telephone string) bool {
