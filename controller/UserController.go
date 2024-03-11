@@ -16,11 +16,20 @@ import (
 
 func Register(ctx *gin.Context) {
 	DB := common.GetDB()
-	// get parameter
 
-	name := ctx.PostForm("name")
-	telephone := ctx.PostForm("telephone")
-	password := ctx.PostForm("password")
+	// get parameter
+	// via map
+	// var requestMap = make(map[string]string)
+	// json.NewDecoder(ctx.Request.Body).Decode(&requestMap)
+
+	// via struct and gin-bind
+	var requestUser = model.User{}
+	// json.NewDecoder(ctx.Request.Body).Decode(&requestUser)
+	ctx.Bind(&requestUser)
+
+	name := requestUser.Name
+	telephone := requestUser.Telephone
+	password := requestUser.Password
 
 	// data verify
 
@@ -59,8 +68,17 @@ func Register(ctx *gin.Context) {
 	}
 	DB.Create(&newUser)
 
+	// send token
+
+	token, err := common.ReleaseToken(newUser)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "System Error"})
+		log.Printf("token generate error: %v", err)
+		return
+	}
+
 	// return result
-	response.Success(ctx, nil, "Register Success")
+	response.Success(ctx, gin.H{"token": token}, "Register Success")
 }
 
 func Login(ctx *gin.Context) {
