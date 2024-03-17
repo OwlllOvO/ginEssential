@@ -17,12 +17,11 @@ import (
 func Register(ctx *gin.Context) {
 	DB := common.GetDB()
 
-	// get parameter
-	// via map
+	// get parameter via map
 	// var requestMap = make(map[string]string)
 	// json.NewDecoder(ctx.Request.Body).Decode(&requestMap)
 
-	// via struct and gin-bind
+	// get parameter via struct and gin-bind
 	var requestUser = model.User{}
 	// json.NewDecoder(ctx.Request.Body).Decode(&requestUser)
 	ctx.Bind(&requestUser)
@@ -85,19 +84,22 @@ func Login(ctx *gin.Context) {
 
 	DB := common.GetDB()
 
-	// get parameters
+	// get parameter via struct and gin-bind
+	var requestUser = model.User{}
+	// json.NewDecoder(ctx.Request.Body).Decode(&requestUser)
+	ctx.Bind(&requestUser)
 
-	telephone := ctx.PostForm("telephone")
-	password := ctx.PostForm("password")
+	telephone := requestUser.Telephone
+	password := requestUser.Password
 
-	// verify data
+	// data verify
 
 	if len(telephone) != 11 {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "Phone number wrong"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Phone number should be 11 digits")
 		return
 	}
 	if len(password) < 6 {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"code": 422, "msg": "Password too weak"})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Password too weak")
 		return
 	}
 
