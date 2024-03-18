@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/repository"
 	"owlllovo/ginessential/response"
@@ -29,6 +30,7 @@ func (c CategoryController) Create(ctx *gin.Context) {
 	var requestCategory vo.CreateCategoryRequest
 
 	if err := ctx.ShouldBind(&requestCategory); err != nil {
+		log.Println(err.Error())
 		// Tutorial Error, Original:
 		// response.Fail(ctx, "Data Error, Please Fill Category Name", nil)
 		response.Fail(ctx, gin.H{"error": "Data Error, Please Fill Category Name"}, "")
