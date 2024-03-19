@@ -125,8 +125,8 @@ func (p PostController) Show(ctx *gin.Context) {
 
 	var post model.Post
 
-	// 使用Preload加载关联的评论
-	result := p.DB.Preload("Comments").Where("id = ?", postId).First(&post)
+	// 使用Preload嵌套加载关联的评论以及评论的用户信息
+	result := p.DB.Preload("Comments.User").Where("id = ?", postId).First(&post)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
 		return
@@ -156,10 +156,12 @@ func (p PostController) AddComment(ctx *gin.Context) {
 		response.Fail(ctx, nil, "Data parsing error")
 		return
 	}
-
+	user, _ := ctx.Get("user")
+	userID := user.(model.User).ID
 	// 创建评论
 	comment := model.Comment{
 		PostID:  postId, // 使用转换后的UUID
+		UserID:  userID, // 设置评论者的UserID
 		Content: commentVo.Content,
 	}
 
@@ -175,7 +177,8 @@ func (p PostController) GetComments(ctx *gin.Context) {
 	postId := ctx.Params.ByName("id")
 
 	var comments []model.Comment
-	if err := p.DB.Where("post_id = ?", postId).Find(&comments).Error; err != nil {
+	// 预加载User关联，以获取每条评论的用户信息
+	if err := p.DB.Where("post_id = ?", postId).Preload("User").Find(&comments).Error; err != nil {
 		response.Fail(ctx, nil, "Failed to retrieve comments")
 		return
 	}
