@@ -29,6 +29,7 @@ func Register(ctx *gin.Context) {
 	name := requestUser.Name
 	telephone := requestUser.Telephone
 	password := requestUser.Password
+	role := requestUser.Role
 
 	// data verify
 
@@ -43,8 +44,11 @@ func Register(ctx *gin.Context) {
 	if len(name) == 0 {
 		name = util.RandomString(10)
 	}
+	if len(role) == 0 {
+		role = "user"
+	}
 
-	log.Println(name, telephone, password)
+	log.Println(name, telephone, password, role)
 
 	// check phone number
 
@@ -64,6 +68,7 @@ func Register(ctx *gin.Context) {
 		Name:      name,
 		Telephone: telephone,
 		Password:  string(hasedPassword),
+		Role:      role,
 	}
 	DB.Create(&newUser)
 
