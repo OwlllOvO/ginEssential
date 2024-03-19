@@ -10,11 +10,12 @@ type Post struct {
 	UserId     uint      `json:"user_id" gorm:"nut null"`
 	CategoryId uint      `json:"category_id" gorm:"nut null"`
 	Category   *Category
-	Title      string `json:"title"  gorm:"type:varchar(50); not null"`
-	HeadImg    string `json:"head_img"`
-	Content    string `json:"content" gorm:"type:text;not null"`
-	CreatedAt  Time   `json:"created_at" gorm:"type:timestamp"`
-	UpdatedAt  Time   `json:"updated_at" gorm:"type:timestamp"`
+	Title      string    `json:"title" gorm:"type:varchar(50); not null"`
+	HeadImg    string    `json:"head_img"`
+	Content    string    `json:"content" gorm:"type:text;not null"`
+	CreatedAt  Time      `json:"created_at" gorm:"type:timestamp"`
+	UpdatedAt  Time      `json:"updated_at" gorm:"type:timestamp"`
+	Comments   []Comment `json:"comments"` // 添加这一行以关联评论
 }
 
 func (post *Post) BeforeCreate(tx *gorm.DB) (err error) {
