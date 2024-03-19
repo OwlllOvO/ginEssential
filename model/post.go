@@ -10,7 +10,7 @@ type Post struct {
 	UserId     uint      `json:"user_id" gorm:"nut null"`
 	CategoryId uint      `json:"category_id" gorm:"nut null"`
 	Category   *Category
-	Title      string `json:"title  gorm:"type:varchar(50); not null"`
+	Title      string `json:"title"  gorm:"type:varchar(50); not null"`
 	HeadImg    string `json:"head_img"`
 	Content    string `json:"content" gorm:"type:text;not null"`
 	CreatedAt  Time   `json:"created_at" gorm:"type:timestamp"`
