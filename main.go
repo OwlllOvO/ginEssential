@@ -18,6 +18,7 @@ func main() {
 	defer sqlDB.Close()
 
 	r := gin.Default()
+	r.Static("/images", "./assets/images")
 	r = CollectRoute(r)
 	port := viper.GetString("server.port")
 	if port != "" {
