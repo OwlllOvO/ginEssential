@@ -8,6 +8,7 @@ import (
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/response"
 	"owlllovo/ginessential/util"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -151,4 +152,80 @@ func isTelephoneExist(db *gorm.DB, telephone string) bool {
 		return true
 	}
 	return false
+}
+
+func UpdateUser(ctx *gin.Context) {
+	DB := common.GetDB()
+	userIdStr := ctx.Param("id")              // 假设 userId 是从 URL 参数中获取的字符串
+	userIdInt, err := strconv.Atoi(userIdStr) // 尝试将字符串转换为整数
+	if err != nil {
+		// 转换失败，处理错误，例如返回错误响应
+		response.Response(ctx, http.StatusBadRequest, 400, nil, "Invalid user ID format")
+		return
+	}
+	var requestUser = model.User{}
+	ctx.Bind(&requestUser)
+	if len(requestUser.Telephone) != 11 {
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Phone number should be 11 digits")
+		return
+	}
+	if len(requestUser.Password) < 6 {
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Password too weak")
+		return
+	}
+	if len(requestUser.Name) == 0 {
+		requestUser.Name = util.RandomString(10)
+	}
+	if len(requestUser.Role) == 0 {
+		requestUser.Role = "user"
+	}
+	log.Println(requestUser.Name, requestUser.Telephone, requestUser.Password, requestUser.Role)
+
+	if isNewTelephoneExist(DB, requestUser.Telephone, uint(userIdInt)) {
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Telephone already in use by another user")
+		return
+	}
+
+	hasedPassword, err := bcrypt.GenerateFromPassword([]byte(requestUser.Password), bcrypt.DefaultCost)
+	if err != nil {
+		response.Response(ctx, http.StatusUnprocessableEntity, 500, nil, "Encryption error")
+		return
+	}
+	requestUser.Password = string(hasedPassword)
+	var user model.User
+	DB.First(&user, userIdStr)
+	if user.ID == 0 {
+		response.Response(ctx, http.StatusNotFound, 404, nil, "User not found")
+		return
+	}
+	log.Println("LOG2:", user)
+	// 更新用户信息
+	DB.Model(&user).Updates(requestUser)
+
+	response.Success(ctx, nil, "User updated successfully")
+}
+
+func isNewTelephoneExist(db *gorm.DB, telephone string, excludeUserId uint) bool {
+	var user model.User
+	db.Where("telephone = ? AND id <> ?", telephone, excludeUserId).First(&user)
+	if user.ID != 0 {
+		return true
+	}
+	return false
+}
+
+func DeleteUser(ctx *gin.Context) {
+	DB := common.GetDB()
+	userId := ctx.Param("id")
+
+	var user model.User
+	DB.First(&user, userId)
+	if user.ID == 0 {
+		response.Response(ctx, http.StatusNotFound, 404, nil, "User not found")
+		return
+	}
+
+	DB.Delete(&user)
+
+	response.Success(ctx, nil, "User deleted successfully")
 }

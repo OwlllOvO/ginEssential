@@ -33,5 +33,11 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	postRoutes.POST("/:id/comments", postController.AddComment) // 添加评论
 	postRoutes.GET("/:id/comments", postController.GetComments) // 获取特定图书的所有评论
 
+	adminRoutes := r.Group("/admin")
+	adminRoutes.Use(middleware.AdminAuthMiddleware())
+	adminRoutes.POST("/users", controller.Register)         // 创建用户
+	adminRoutes.PUT("/users/:id", controller.UpdateUser)    // 修改用户
+	adminRoutes.DELETE("/users/:id", controller.DeleteUser) // 删除用户
+
 	return r
 }
