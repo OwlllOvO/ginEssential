@@ -148,7 +148,7 @@ func (p PostController) Show(ctx *gin.Context) {
 	var post model.Post
 
 	// 使用Preload嵌套加载关联的评论以及评论的用户信息
-	result := p.DB.Preload("Category").Preload("Comments.User").Where("id = ?", postId).First(&post)
+	result := p.DB.Preload("Category").Preload("Comments.User").Preload("User").Where("id = ?", postId).First(&post)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
 		return
@@ -258,7 +258,7 @@ func (p PostController) PageList(ctx *gin.Context) {
 	// Split into pages
 
 	var posts []model.Post
-	p.DB.Preload("Category").Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&posts)
+	p.DB.Preload("Category").Preload("User").Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&posts)
 
 	// Total numbers
 

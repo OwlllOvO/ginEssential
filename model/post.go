@@ -8,7 +8,8 @@ import (
 type Post struct {
 	ID         uuid.UUID `json:"id" gorm:"type:char(36);primary_key"`
 	UserId     uint      `json:"user_id" gorm:"nut null"`
-	CategoryId uint      `json:"category_id" gorm:"nut null"`
+	User       *User
+	CategoryId uint `json:"category_id" gorm:"nut null"`
 	Category   *Category
 	Title      string    `json:"title" gorm:"type:varchar(50); not null"`
 	HeadImg    string    `json:"head_img"`
