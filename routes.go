@@ -19,6 +19,7 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	categoryRoutes.PUT("/:id", categoryController.Update)
 	categoryRoutes.GET("/:id", categoryController.Show)
 	categoryRoutes.DELETE("/:id", categoryController.Delete)
+	categoryRoutes.GET("", categoryController.ListAll)
 
 	postRoutes := r.Group("/posts")
 	postRoutes.Use(middleware.AuthMiddleware())

@@ -13,6 +13,7 @@ import (
 
 type ICategoryController interface {
 	RestController
+	ListAll(ctx *gin.Context)
 }
 
 type CategoryController struct {
@@ -103,4 +104,14 @@ func (c CategoryController) Delete(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, nil, "")
+}
+
+func (c CategoryController) ListAll(ctx *gin.Context) {
+	categories, err := c.Repository.ListAll()
+	if err != nil {
+		response.Fail(ctx, gin.H{"error": "Failed to retrieve categories"}, "")
+		return
+	}
+
+	response.Success(ctx, gin.H{"categories": categories}, "")
 }

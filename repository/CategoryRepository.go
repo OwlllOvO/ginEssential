@@ -51,3 +51,11 @@ func (c CategoryRepository) DeleteById(id int) error {
 
 	return nil
 }
+
+func (r CategoryRepository) ListAll() ([]model.Category, error) {
+	var categories []model.Category
+	if err := r.DB.Find(&categories).Error; err != nil {
+		return nil, err
+	}
+	return categories, nil
+}

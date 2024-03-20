@@ -27,14 +27,24 @@ type PostController struct {
 
 func (p PostController) Create(ctx *gin.Context) {
 	var requestPost vo.CreatePostRequest
-
 	// validate data
 
-	if err := ctx.ShouldBind(&requestPost); err != nil {
-		log.Println(err.Error())
-		// Tutorial Error, Original:
-		// response.Fail(ctx, "Data Error, Please Fill Category Name", nil)
-		response.Fail(ctx, gin.H{"error": "Data Error, Please Fill Category Name"}, "")
+	ctx.ShouldBind(&requestPost)
+	log.Println(requestPost)
+	var category model.Category
+	// 尝试根据分类名称查找分类
+	result := p.DB.Where("name = ?", requestPost.CategoryName).First(&category)
+
+	// 如果分类不存在，返回错误信息
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		response.Fail(ctx, gin.H{"error": "Category does not exist"}, "")
+		return
+	}
+
+	// 如果查找过程中发生了其他错误，也返回错误信息
+	if result.Error != nil {
+		log.Println(result.Error)
+		response.Fail(ctx, gin.H{"error": "An error occurred while retrieving the category"}, "")
 		return
 	}
 
@@ -46,7 +56,7 @@ func (p PostController) Create(ctx *gin.Context) {
 
 	post := model.Post{
 		UserId:     user.(model.User).ID,
-		CategoryId: requestPost.CategoryId,
+		CategoryId: category.ID,
 		Title:      requestPost.Title,
 		HeadImg:    requestPost.HeadImg,
 		Content:    requestPost.Content,
@@ -69,6 +79,12 @@ func (p PostController) Update(ctx *gin.Context) {
 		// Tutorial Error, Original:
 		// response.Fail(ctx, "Data Error, Please Fill Category Name", nil)
 		response.Fail(ctx, gin.H{"error": "Data Error, Please Fill Category Name"}, "")
+		return
+	}
+
+	var category model.Category
+	if err := p.DB.Where("name = ?", requestPost.CategoryName).First(&category).Error; err != nil {
+		response.Fail(ctx, gin.H{"error": "Category does not exist"}, "")
 		return
 	}
 
@@ -95,14 +111,15 @@ func (p PostController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// Chech if user is author of post
+	// Check if user is author of post
 
 	// Get logined user
 
 	user, _ := ctx.Get("user")
 
 	userId := user.(model.User).ID
-	if userId != post.UserId {
+	log.Println(user.(model.User).Role)
+	if userId != post.UserId && user.(model.User).Role != "Admin" {
 		response.Fail(ctx, gin.H{"error": "Post does not belong to you, access denied"}, "")
 		return
 	}
@@ -111,7 +128,12 @@ func (p PostController) Update(ctx *gin.Context) {
 	/* Tutorial Error, Original:
 	if err := p.DB.Model(&post).Update(requestPost).Error; err != nil {
 	*/
-	if err := p.DB.Model(&post).Updates(requestPost).Error; err != nil {
+	if err := p.DB.Model(&model.Post{}).Where("id = ?", postId).Updates(model.Post{
+		CategoryId: category.ID,
+		Title:      requestPost.Title,
+		HeadImg:    requestPost.HeadImg,
+		Content:    requestPost.Content,
+	}).Error; err != nil {
 		response.Fail(ctx, gin.H{"error": "Update Failed"}, "")
 		return
 	}
@@ -126,7 +148,7 @@ func (p PostController) Show(ctx *gin.Context) {
 	var post model.Post
 
 	// 使用Preload嵌套加载关联的评论以及评论的用户信息
-	result := p.DB.Preload("Comments.User").Where("id = ?", postId).First(&post)
+	result := p.DB.Preload("Category").Preload("Comments.User").Where("id = ?", postId).First(&post)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
 		return
@@ -236,7 +258,7 @@ func (p PostController) PageList(ctx *gin.Context) {
 	// Split into pages
 
 	var posts []model.Post
-	p.DB.Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&posts)
+	p.DB.Preload("Category").Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&posts)
 
 	// Total numbers
 
