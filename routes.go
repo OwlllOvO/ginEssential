@@ -38,6 +38,8 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	adminRoutes.POST("/users", controller.Register)         // 创建用户
 	adminRoutes.PUT("/users/:id", controller.UpdateUser)    // 修改用户
 	adminRoutes.DELETE("/users/:id", controller.DeleteUser) // 删除用户
+	adminRoutes.GET("/users", controller.UserList)          // 用户列表
+	adminRoutes.GET("/users/:id", controller.GetUser)       // 单个用户
 
 	return r
 }

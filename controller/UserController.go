@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"errors"
 	"log"
+	"math"
 	"net/http"
 	"owlllovo/ginessential/common"
 	"owlllovo/ginessential/dto"
@@ -228,4 +230,62 @@ func DeleteUser(ctx *gin.Context) {
 	DB.Delete(&user)
 
 	response.Success(ctx, nil, "User deleted successfully")
+}
+
+func UserList(ctx *gin.Context) {
+	DB := common.GetDB()
+
+	// 获取分页参数
+	pageNum, _ := strconv.Atoi(ctx.DefaultQuery("pageNum", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
+
+	if pageNum <= 0 {
+		pageNum = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	var users []model.User
+	var total int64
+
+	// 分页查询用户数据
+	DB.Select("id", "name", "telephone", "role", "created_at", "updated_at").Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&users)
+
+	// 查询总用户数以计算总页数
+	DB.Model(&model.User{}).Count(&total)
+
+	// 计算总页数
+	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
+
+	// 返回分页的用户数据和总页数
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":       200,
+		"data":       users,
+		"total":      total,
+		"totalPages": totalPages,
+		"pageNum":    pageNum,
+		"pageSize":   pageSize,
+	})
+}
+
+func GetUser(ctx *gin.Context) {
+	DB := common.GetDB()
+	// 从URL路径中获取用户ID
+	userId := ctx.Param("id")
+
+	var user model.User
+	// 根据ID查询用户，注意不要返回密码字段
+	result := DB.Select("ID", "CreatedAt", "UpdatedAt", "Name", "Telephone", "Role").First(&user, userId)
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "User does not exist"})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Database error"})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": user})
 }
