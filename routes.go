@@ -29,6 +29,7 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	postRoutes.GET("/:id", postController.Show)
 	postRoutes.DELETE("/:id", postController.Delete)
 	postRoutes.POST("/page/list", postController.PageList)
+	postRoutes.POST("/upload", postController.UploadImage)
 
 	// 添加评论相关的路由
 	postRoutes.POST("/:id/comments", postController.AddComment) // 添加评论

@@ -3,10 +3,12 @@ package controller
 import (
 	"errors"
 	"log"
+	"net/http"
 	"owlllovo/ginessential/common"
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/response"
 	"owlllovo/ginessential/vo"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +21,7 @@ type IPostController interface {
 	PageList(ctx *gin.Context)
 	AddComment(ctx *gin.Context)  // 添加评论的方法
 	GetComments(ctx *gin.Context) // 获取评论的方法
+	UploadImage(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -266,6 +269,28 @@ func (p PostController) PageList(ctx *gin.Context) {
 	p.DB.Model(model.Post{}).Count(&total)
 
 	response.Success(ctx, gin.H{"data": posts, "total": total}, "Success")
+}
+
+func (p PostController) UploadImage(ctx *gin.Context) {
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 生成唯一文件名
+	ext := filepath.Ext(file.Filename)
+	newFileName := uuid.NewV4().String() + ext
+
+	// 保存文件
+	path := "assets/images/" + newFileName
+	if err := ctx.SaveUploadedFile(file, path); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 返回保存的文件名
+	ctx.JSON(http.StatusOK, gin.H{"filename": newFileName})
 }
 
 func NewPostController() IPostController {
