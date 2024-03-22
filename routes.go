@@ -42,6 +42,7 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	adminRoutes.DELETE("/users/:id", controller.DeleteUser) // 删除用户
 	adminRoutes.GET("/users", controller.UserList)          // 用户列表
 	adminRoutes.GET("/users/:id", controller.GetUser)       // 单个用户
+	adminRoutes.POST("/posts/:id/approve", postController.ApprovePost)
 
 	return r
 }

@@ -22,6 +22,7 @@ type IPostController interface {
 	AddComment(ctx *gin.Context)  // 添加评论的方法
 	GetComments(ctx *gin.Context) // 获取评论的方法
 	UploadImage(ctx *gin.Context)
+	ApprovePost(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -32,7 +33,9 @@ func (p PostController) Create(ctx *gin.Context) {
 	var requestPost vo.CreatePostRequest
 	// validate data
 
-	ctx.ShouldBind(&requestPost)
+	if err := ctx.ShouldBind(&requestPost); err != nil {
+		response.Fail(ctx, gin.H{"error": "Data Error, Please Fill Category Name"}, "")
+	}
 	log.Println(requestPost)
 	var category model.Category
 	// 尝试根据分类名称查找分类
@@ -63,6 +66,7 @@ func (p PostController) Create(ctx *gin.Context) {
 		Title:      requestPost.Title,
 		HeadImg:    requestPost.HeadImg,
 		Content:    requestPost.Content,
+		Status:     "Pending",
 	}
 
 	if err := p.DB.Create(&post).Error; err != nil {
@@ -81,6 +85,7 @@ func (p PostController) Update(ctx *gin.Context) {
 	if err := ctx.ShouldBind(&requestPost); err != nil {
 		// Tutorial Error, Original:
 		// response.Fail(ctx, "Data Error, Please Fill Category Name", nil)
+		log.Println(requestPost)
 		response.Fail(ctx, gin.H{"error": "Data Error, Please Fill Category Name"}, "")
 		return
 	}
@@ -104,7 +109,7 @@ func (p PostController) Update(ctx *gin.Context) {
 	*/
 
 	var post model.Post
-	result := p.DB.Preload("Category").Where("id = ?", postId).First(&post)
+	result := p.DB.Where("id = ?", postId).First(&post)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
 		return
@@ -123,7 +128,7 @@ func (p PostController) Update(ctx *gin.Context) {
 	userId := user.(model.User).ID
 	log.Println(user.(model.User).Role)
 	if userId != post.UserId && user.(model.User).Role != "Admin" {
-		response.Fail(ctx, gin.H{"error": "Post does not belong to you, access denied"}, "")
+		response.Fail(ctx, gin.H{"error": "Only author and admin can edit posts"}, "")
 		return
 	}
 
@@ -136,6 +141,7 @@ func (p PostController) Update(ctx *gin.Context) {
 		Title:      requestPost.Title,
 		HeadImg:    requestPost.HeadImg,
 		Content:    requestPost.Content,
+		Status:     requestPost.Status,
 	}).Error; err != nil {
 		response.Fail(ctx, gin.H{"error": "Update Failed"}, "")
 		return
@@ -290,6 +296,32 @@ func (p PostController) UploadImage(ctx *gin.Context) {
 
 	// 返回保存的文件名
 	ctx.JSON(http.StatusOK, gin.H{"filename": newFileName})
+}
+
+// 在 PostController 中添加 ApprovePost 方法
+func (p PostController) ApprovePost(ctx *gin.Context) {
+
+	postId := ctx.Param("id") // 获取URL参数中的postId
+
+	var post model.Post
+	// 查找帖子，确保它存在
+	if err := p.DB.Where("id = ?", postId).First(&post).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Fail(ctx, gin.H{"error": "Post not found"}, "Post does not exist")
+			return
+		}
+		response.Fail(ctx, gin.H{"error": err.Error()}, "An error occurred while retrieving the post")
+		return
+	}
+
+	// 更改帖子的状态为"Approved"
+	post.Status = "Approved"
+	if err := p.DB.Save(&post).Error; err != nil {
+		response.Fail(ctx, gin.H{"error": err.Error()}, "Failed to approve the post")
+		return
+	}
+
+	response.Success(ctx, gin.H{"post": post}, "Post approved successfully")
 }
 
 func NewPostController() IPostController {
