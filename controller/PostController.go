@@ -240,9 +240,8 @@ func (p PostController) Delete(ctx *gin.Context) {
 	// Get logined user
 
 	user, _ := ctx.Get("user")
-
 	userId := user.(model.User).ID
-	if userId != post.UserId {
+	if userId != post.UserId && user.(model.User).Role != "Admin" {
 		response.Fail(ctx, gin.H{"error": "Post does not belong to you, access denied"}, "")
 		return
 	}
