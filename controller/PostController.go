@@ -75,6 +75,24 @@ func (p PostController) Create(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, nil, "Create Success")
+
+	go func() {
+		aiComment, err := GetAIComment(requestPost.HeadImg)
+		if err != nil {
+			log.Printf("Failed to get AI comment: %v", err)
+		} else {
+			// Assume the AI user has a fixed user ID, e.g., 1
+			aiUserComment := model.Comment{
+				PostID:  post.ID,
+				UserID:  4, // AI用户的ID
+				Content: aiComment,
+			}
+
+			if err := p.DB.Create(&aiUserComment).Error; err != nil {
+				log.Printf("Failed to save AI comment: %v", err)
+			}
+		}
+	}()
 }
 
 func (p PostController) Update(ctx *gin.Context) {
