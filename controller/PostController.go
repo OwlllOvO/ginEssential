@@ -23,6 +23,8 @@ type IPostController interface {
 	GetComments(ctx *gin.Context) // 获取评论的方法
 	UploadImage(ctx *gin.Context)
 	ApprovePost(ctx *gin.Context)
+	LikePost(ctx *gin.Context)
+	UnlikePost(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -77,6 +79,13 @@ func (p PostController) Create(ctx *gin.Context) {
 	response.Success(ctx, nil, "Create Success")
 
 	go func() {
+		var aiUser model.User
+		err := p.DB.Where("name = ?", "AI").FirstOrCreate(&aiUser, model.User{Name: "AI", Role: "AI"}).Error
+		if err != nil {
+			log.Printf("Failed to ensure AI user exists: %v", err)
+			return
+		}
+
 		aiComment, err := GetAIComment(requestPost.HeadImg)
 		if err != nil {
 			log.Printf("Failed to get AI comment: %v", err)
@@ -84,7 +93,7 @@ func (p PostController) Create(ctx *gin.Context) {
 			// Assume the AI user has a fixed user ID, e.g., 1
 			aiUserComment := model.Comment{
 				PostID:  post.ID,
-				UserID:  4, // AI用户的ID
+				UserID:  aiUser.ID, // AI用户的ID
 				Content: aiComment,
 			}
 
@@ -172,6 +181,8 @@ func (p PostController) Update(ctx *gin.Context) {
 func (p PostController) Show(ctx *gin.Context) {
 	postId := ctx.Params.ByName("id")
 
+	var likeCount int64
+	p.DB.Model(&model.Like{}).Where("post_id = ?", postId).Count(&likeCount)
 	var post model.Post
 
 	// 使用Preload嵌套加载关联的评论以及评论的用户信息
@@ -185,7 +196,7 @@ func (p PostController) Show(ctx *gin.Context) {
 		return
 	}
 
-	response.Success(ctx, gin.H{"post": post}, "Show Success")
+	response.Success(ctx, gin.H{"post": post, "likeCount": likeCount}, "Show Success")
 }
 
 func (p PostController) AddComment(ctx *gin.Context) {
@@ -342,8 +353,55 @@ func (p PostController) ApprovePost(ctx *gin.Context) {
 	response.Success(ctx, gin.H{"post": post}, "Post approved successfully")
 }
 
+func (p PostController) LikePost(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+	userID := user.(model.User).ID
+	postID := ctx.Param("id")
+	log.Println(userID)
+	var post model.Post
+
+	// 检查帖子是否存在
+	if err := p.DB.Where("id = ?", postID).First(&post).Error; err != nil {
+		response.Fail(ctx, nil, "帖子不存在")
+		return
+	}
+	var existingLike model.Like
+	if err := p.DB.Where("user_id = ? AND post_id = ?", userID, postID).First(&existingLike).Error; err == nil {
+		response.Fail(ctx, nil, "已经点过赞了")
+		return
+	}
+	like := model.Like{UserId: userID, PostId: post.ID}
+	p.DB.Create(&like)
+	response.Success(ctx, nil, "点赞成功")
+}
+
+func (p PostController) UnlikePost(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+	userID := user.(model.User).ID // 获取当前登录用户的ID
+	postID := ctx.Param("id")      // 从请求路径中获取帖子ID
+
+	var like model.Like
+	// 查找点赞记录，确保记录存在
+	err := p.DB.Where("user_id = ? AND post_id = ?", userID, postID).First(&like).Error
+	if err != nil {
+		// 如果找不到记录，返回错误信息
+		response.Fail(ctx, nil, "点赞记录不存在")
+		return
+	}
+
+	// 删除找到的点赞记录
+	if err := p.DB.Delete(&like).Error; err != nil {
+		// 如果删除失败，返回错误信息
+		response.Fail(ctx, nil, "取消点赞失败")
+		return
+	}
+
+	// 成功取消点赞
+	response.Success(ctx, nil, "取消点赞成功")
+}
+
 func NewPostController() IPostController {
 	db := common.GetDB()
-	db.AutoMigrate(&model.Post{}, &model.Comment{})
+	db.AutoMigrate(&model.Post{}, &model.Comment{}, &model.Like{})
 	return PostController{DB: db}
 }
