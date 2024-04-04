@@ -25,6 +25,7 @@ type IPostController interface {
 	ApprovePost(ctx *gin.Context)
 	LikePost(ctx *gin.Context)
 	UnlikePost(ctx *gin.Context)
+	IsLiked(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -398,6 +399,26 @@ func (p PostController) UnlikePost(ctx *gin.Context) {
 
 	// 成功取消点赞
 	response.Success(ctx, nil, "取消点赞成功")
+}
+
+func (p PostController) IsLiked(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+	userID := user.(model.User).ID
+	postID := ctx.Param("id")
+
+	var like model.Like
+	err := p.DB.Where("user_id = ? AND post_id = ?", userID, postID).First(&like).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 没有找到点赞记录，说明用户没有点赞过该帖子
+		response.Success(ctx, gin.H{"isLiked": false}, "Post is not liked by the user")
+	} else if err != nil {
+		// 数据库查询出错
+		response.Fail(ctx, gin.H{"error": err.Error()}, "Failed to check the like status")
+	} else {
+		// 找到点赞记录，说明用户已经点赞过该帖子
+		response.Success(ctx, gin.H{"isLiked": true}, "Post is liked by the user")
+	}
 }
 
 func NewPostController() IPostController {
