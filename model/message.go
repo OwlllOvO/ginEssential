@@ -9,6 +9,7 @@ type Message struct {
 	ID         uuid.UUID `gorm:"type:char(36);primary_key"`
 	SenderID   uint      `json:"sender_id"`
 	ReceiverID uint      `json:"receiver_id"`
+	PostID     uuid.UUID `json:"post_id"`
 	Content    string    `json:"content" gorm:"type:text;not null"`
 	CreatedAt  Time      `json:"created_at" gorm:"type:timestamp"`
 }
