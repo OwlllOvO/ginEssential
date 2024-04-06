@@ -50,5 +50,9 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	adminRoutes.GET("/users/:id", controller.GetUser)       // 单个用户
 	adminRoutes.POST("/posts/:id/approve", postController.ApprovePost)
 
+	chatController := controller.NewChatController()
+	r.POST("/message", middleware.AuthMiddleware(), chatController.SendMessage)
+	r.GET("/messages", middleware.AuthMiddleware(), chatController.GetMessages)
+
 	return r
 }
