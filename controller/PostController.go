@@ -27,6 +27,7 @@ type IPostController interface {
 	UnlikePost(ctx *gin.Context)
 	IsLiked(ctx *gin.Context)
 	LikeRank(ctx *gin.Context)
+	GetUserPosts(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -464,4 +465,42 @@ func NewPostController() IPostController {
 	db := common.GetDB()
 	db.AutoMigrate(&model.Post{}, &model.Comment{}, &model.Like{})
 	return PostController{DB: db}
+}
+
+func (p PostController) GetUserPosts(ctx *gin.Context) {
+	var userId string = ctx.Param("id")
+	var pageNum int
+	var pageSize int
+	var err error
+
+	if pageNum, err = strconv.Atoi(ctx.DefaultQuery("pageNum", "1")); err != nil {
+		pageNum = 1
+	}
+
+	if pageSize, err = strconv.Atoi(ctx.DefaultQuery("pageSize", "10")); err != nil {
+		pageSize = 10
+	}
+
+	var posts []model.Post
+	if err := p.DB.
+		Preload("Category").
+		Preload("User").
+		Where("user_id = ?", userId).
+		Offset((pageNum - 1) * pageSize).
+		Limit(pageSize).
+		Find(&posts).
+		Error; err != nil {
+		response.Fail(ctx, nil, "Posts not found")
+		return
+	}
+	var user model.User
+	if err := p.DB.Where("id = ?", userId).First(&user).Error; err != nil {
+		response.Fail(ctx, nil, "User not found")
+		return
+	}
+
+	var total int64
+	p.DB.Model(&model.Post{}).Where("user_id = ?", userId).Count(&total)
+
+	response.Success(ctx, gin.H{"userName": user.Name, "posts": posts, "total": total, "pageNum": pageNum, "pageSize": pageSize}, "User's posts retrieved successfully")
 }

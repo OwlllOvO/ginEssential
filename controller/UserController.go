@@ -138,7 +138,7 @@ func Login(ctx *gin.Context) {
 	}
 
 	// return result
-	response.Success(ctx, gin.H{"token": token}, "Login Success")
+	response.Success(ctx, gin.H{"token": token, "userid": user.ID}, "Login Success")
 }
 
 func Info(ctx *gin.Context) {
