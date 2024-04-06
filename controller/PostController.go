@@ -26,6 +26,7 @@ type IPostController interface {
 	LikePost(ctx *gin.Context)
 	UnlikePost(ctx *gin.Context)
 	IsLiked(ctx *gin.Context)
+	LikeRank(ctx *gin.Context)
 }
 
 type PostController struct {
@@ -419,6 +420,44 @@ func (p PostController) IsLiked(ctx *gin.Context) {
 		// 找到点赞记录，说明用户已经点赞过该帖子
 		response.Success(ctx, gin.H{"isLiked": true}, "Post is liked by the user")
 	}
+}
+
+func (p PostController) LikeRank(ctx *gin.Context) {
+	pageNum, _ := strconv.Atoi(ctx.DefaultQuery("pageNum", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "20"))
+
+	// 修改结构体，加入排名字段
+	type PostWithLikeCount struct {
+		model.Post
+		LikeCount int `json:"like_count"`
+		Rank      int `json:"rank"` // 加入排名字段
+	}
+
+	var postsWithLikeCount []PostWithLikeCount
+
+	// 查询帖子以及对应的点赞数量
+	p.DB.Model(&model.Post{}).
+		Preload("Category").
+		Preload("User").
+		Select("posts.*, COUNT(likes.id) as like_count").
+		Joins("LEFT JOIN likes ON likes.post_id = posts.id").
+		Group("posts.id").
+		Order("like_count DESC, posts.created_at DESC").
+		Offset((pageNum - 1) * pageSize).Limit(pageSize).
+		Find(&postsWithLikeCount)
+
+	// 设置排名
+	for i, post := range postsWithLikeCount {
+		// 排名从1开始，所以需要加1
+		post.Rank = i + 1 + (pageNum-1)*pageSize
+		postsWithLikeCount[i] = post // 更新切片中的元素
+	}
+
+	// 查询总帖子数，用于分页
+	var total int64
+	p.DB.Model(&model.Post{}).Count(&total)
+
+	response.Success(ctx, gin.H{"data": postsWithLikeCount, "total": total}, "Success")
 }
 
 func NewPostController() IPostController {

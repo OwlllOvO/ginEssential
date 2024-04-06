@@ -33,6 +33,7 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	postRoutes.POST("/:id/like", postController.LikePost)
 	postRoutes.POST("/:id/unlike", postController.UnlikePost)
 	postRoutes.GET("/:id/isliked", postController.IsLiked)
+	postRoutes.GET("/rank", postController.LikeRank)
 
 	// 添加评论相关的路由
 	postRoutes.POST("/:id/comments", postController.AddComment) // 添加评论
