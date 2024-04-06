@@ -53,6 +53,7 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	chatController := controller.NewChatController()
 	r.POST("/message", middleware.AuthMiddleware(), chatController.SendMessage)
 	r.GET("/messages", middleware.AuthMiddleware(), chatController.GetMessages)
+	r.GET("/chatlist", middleware.AuthMiddleware(), chatController.ChatList)
 
 	return r
 }

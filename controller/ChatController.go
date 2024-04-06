@@ -79,3 +79,40 @@ func (c *ChatController) GetMessages(ctx *gin.Context) {
 
 	response.Success(ctx, gin.H{"messages": messages}, "Messages retrieved successfully")
 }
+
+func (c *ChatController) ChatList(ctx *gin.Context) {
+	user, _ := ctx.Get("user")
+	userID := user.(model.User).ID
+
+	var conversations []struct {
+		SenderID           uint       `json:"sender_id"`
+		SenderName         string     `json:"sender_name"`
+		PostID             uuid.UUID  `json:"post_id"`
+		PostTitle          string     `json:"post_title"`
+		LastMessageContent string     `json:"last_message_content"`
+		LastMessageTime    model.Time `json:"last_message_time"`
+		PostHeadImg        string     `json:"post_head_img"` // 添加封面图字段
+	}
+
+	// 查询所有与当前用户有过往来的会话，及其最新的消息，包括帖子的封面图
+	if err := c.DB.Raw(`
+        SELECT m.sender_id, u.name AS sender_name, m.post_id, p.title AS post_title, 
+               m.content AS last_message_content, m.created_at AS last_message_time, 
+               p.head_img AS post_head_img
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        JOIN posts p ON m.post_id = p.id
+        INNER JOIN (
+            SELECT sender_id, post_id, MAX(created_at) AS max_time
+            FROM messages
+            WHERE receiver_id = ? OR sender_id = ?
+            GROUP BY sender_id, post_id
+        ) AS mm ON m.sender_id = mm.sender_id AND m.post_id = mm.post_id AND m.created_at = mm.max_time
+        ORDER BY m.created_at DESC
+    `, userID, userID).Scan(&conversations).Error; err != nil {
+		response.Fail(ctx, nil, "Failed to retrieve conversations")
+		return
+	}
+
+	response.Success(ctx, gin.H{"conversations": conversations}, "Conversations retrieved successfully")
+}
