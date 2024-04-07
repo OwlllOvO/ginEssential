@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"owlllovo/ginessential/common"
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/response"
@@ -31,16 +32,38 @@ func (c *ChatController) SendMessage(ctx *gin.Context) {
 		return
 	}
 
-	postID, err := uuid.FromString(req.PostID) // 将字符串格式的 PostID 转换为 uuid.UUID 类型
+	postID, err := uuid.FromString(req.PostID)
 	if err != nil {
 		response.Fail(ctx, nil, "Invalid post ID")
 		return
 	}
+
+	// 查找是否已存在相同收发者和帖子的 Chat
+	var chat model.Chat
+	err = c.DB.Where("((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND post_id = ?",
+		sender.(model.User).ID, req.ReceiverID, req.ReceiverID, sender.(model.User).ID, postID).First(&chat).Error
+
+	// 如果找不到，创建新的 Chat
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		chat = model.Chat{
+			SenderID:   sender.(model.User).ID,
+			ReceiverID: req.ReceiverID,
+			PostID:     postID,
+		}
+		if err := c.DB.Create(&chat).Error; err != nil {
+			response.Fail(ctx, nil, "Failed to create chat")
+			return
+		}
+	} else if err != nil {
+		response.Fail(ctx, nil, "Failed to retrieve chat")
+		return
+	}
+
+	// 创建新的 Message 并关联到找到或创建的 Chat，同时确保 SenderID 被正确设置
 	message := model.Message{
-		SenderID:   sender.(model.User).ID,
-		ReceiverID: req.ReceiverID,
-		PostID:     postID,
-		Content:    req.Content,
+		ChatID:   chat.ID,
+		SenderID: sender.(model.User).ID, // 明确设置 SenderID
+		Content:  req.Content,
 	}
 
 	if err := c.DB.Create(&message).Error; err != nil {
@@ -52,27 +75,37 @@ func (c *ChatController) SendMessage(ctx *gin.Context) {
 }
 
 func (c *ChatController) GetMessages(ctx *gin.Context) {
-	sender, _ := ctx.Get("user")
-
-	// 从查询参数中获取receiver_id，而不是从请求体中获取
+	user, _ := ctx.Get("user")
 	receiverIDStr := ctx.Query("receiver_id")
 	postIDStr := ctx.Query("post_id")
+
 	receiverID, err := strconv.ParseUint(receiverIDStr, 10, 32)
 	if err != nil {
 		response.Fail(ctx, nil, "Invalid receiver ID")
 		return
 	}
 
-	postID, err := uuid.FromString(postIDStr) // 将字符串格式的 PostID 转换为 uuid.UUID 类型
+	postID, err := uuid.FromString(postIDStr)
 	if err != nil {
 		response.Fail(ctx, nil, "Invalid post ID")
 		return
 	}
 
+	// 查找对应的 Chat
+	var chat model.Chat
+	if err := c.DB.Where("((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND post_id = ?",
+		user.(model.User).ID, receiverID, receiverID, user.(model.User).ID, postID).First(&chat).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Fail(ctx, nil, "Chat not found")
+		} else {
+			response.Fail(ctx, nil, "Failed to retrieve chat")
+		}
+		return
+	}
+
+	// 获取该 Chat 下的所有 Message
 	var messages []model.Message
-	if err := c.DB.Where("(sender_id = ? AND receiver_id = ? AND post_id = ?) OR (sender_id = ? AND receiver_id = ? AND post_id = ?)",
-		sender.(model.User).ID, receiverID, postID, receiverID, sender.(model.User).ID, postID).
-		Order("created_at DESC").Find(&messages).Error; err != nil {
+	if err := c.DB.Where("chat_id = ?", chat.ID).Order("created_at DESC").Find(&messages).Error; err != nil {
 		response.Fail(ctx, nil, "Failed to retrieve messages")
 		return
 	}
@@ -85,32 +118,47 @@ func (c *ChatController) ChatList(ctx *gin.Context) {
 	userID := user.(model.User).ID
 
 	var conversations []struct {
-		SenderID           uint       `json:"sender_id"`
-		SenderName         string     `json:"sender_name"`
-		PostID             uuid.UUID  `json:"post_id"`
-		PostTitle          string     `json:"post_title"`
-		LastMessageContent string     `json:"last_message_content"`
-		LastMessageTime    model.Time `json:"last_message_time"`
-		PostHeadImg        string     `json:"post_head_img"` // 添加封面图字段
+		ChatID               uuid.UUID  `json:"chat_id"`
+		PostID               uuid.UUID  `json:"post_id"`
+		PostTitle            string     `json:"post_title"`
+		PostHeadImg          string     `json:"post_head_img"`
+		OtherParticipantID   uint       `json:"other_participant_id"`
+		OtherParticipantName string     `json:"other_participant_name"`
+		LastMessageContent   string     `json:"last_message_content"`
+		LastMessageTime      model.Time `json:"last_message_time"`
 	}
 
-	// 查询所有与当前用户有过往来的会话，及其最新的消息，包括帖子的封面图
 	if err := c.DB.Raw(`
-        SELECT m.sender_id, u.name AS sender_name, m.post_id, p.title AS post_title, 
-               m.content AS last_message_content, m.created_at AS last_message_time, 
-               p.head_img AS post_head_img
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        JOIN posts p ON m.post_id = p.id
-        INNER JOIN (
-            SELECT sender_id, post_id, MAX(created_at) AS max_time
-            FROM messages
-            WHERE receiver_id = ? OR sender_id = ?
-            GROUP BY sender_id, post_id
-        ) AS mm ON m.sender_id = mm.sender_id AND m.post_id = mm.post_id AND m.created_at = mm.max_time
-        ORDER BY m.created_at DESC
-    `, userID, userID).Scan(&conversations).Error; err != nil {
-		response.Fail(ctx, nil, "Failed to retrieve conversations")
+		SELECT
+			chats.id AS chat_id,
+			chats.post_id,
+			posts.title AS post_title,
+			posts.head_img AS post_head_img,
+			IF(chats.sender_id = ?, chats.receiver_id, chats.sender_id) AS other_participant_id,
+			IF(chats.sender_id = ?, users_receiver.name, users_sender.name) AS other_participant_name,
+			latest_messages.content AS last_message_content,
+			latest_messages.created_at AS last_message_time
+		FROM
+			chats
+		JOIN (
+			SELECT
+				chat_id,
+				MAX(created_at) AS max_created_at
+			FROM
+				messages
+			GROUP BY
+				chat_id
+		) AS latest_chat_messages ON chats.id = latest_chat_messages.chat_id
+		JOIN messages AS latest_messages ON latest_chat_messages.chat_id = latest_messages.chat_id AND latest_chat_messages.max_created_at = latest_messages.created_at
+		JOIN posts ON chats.post_id = posts.id
+		LEFT JOIN users AS users_sender ON users_sender.id = chats.sender_id
+		LEFT JOIN users AS users_receiver ON users_receiver.id = chats.receiver_id
+		WHERE
+			chats.sender_id = ? OR chats.receiver_id = ?
+		ORDER BY
+			latest_messages.created_at DESC
+	`, userID, userID, userID, userID).Scan(&conversations).Error; err != nil {
+		response.Fail(ctx, nil, "Failed to retrieve chat list")
 		return
 	}
 

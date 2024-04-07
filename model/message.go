@@ -5,13 +5,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// Message represents a single message in a chat.
 type Message struct {
-	ID         uuid.UUID `gorm:"type:char(36);primary_key"`
-	SenderID   uint      `json:"sender_id"`
-	ReceiverID uint      `json:"receiver_id"`
-	PostID     uuid.UUID `json:"post_id"`
-	Content    string    `json:"content" gorm:"type:text;not null"`
-	CreatedAt  Time      `json:"created_at" gorm:"type:timestamp"`
+	ID        uuid.UUID `gorm:"type:char(36);primary_key"`
+	ChatID    uuid.UUID `json:"chat_id"`
+	Content   string    `json:"content" gorm:"type:text;not null"`
+	SenderID  uint      `json:"sender_id"`
+	CreatedAt Time      `json:"created_at" gorm:"type:timestamp"`
 }
 
 func (message *Message) BeforeCreate(tx *gorm.DB) (err error) {
