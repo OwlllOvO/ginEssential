@@ -158,51 +158,59 @@ func isTelephoneExist(db *gorm.DB, telephone string) bool {
 
 func UpdateUser(ctx *gin.Context) {
 	DB := common.GetDB()
-	userIdStr := ctx.Param("id")              // 假设 userId 是从 URL 参数中获取的字符串
-	userIdInt, err := strconv.Atoi(userIdStr) // 尝试将字符串转换为整数
+	userIdStr := ctx.Param("id")
+	userIdInt, err := strconv.Atoi(userIdStr)
 	if err != nil {
-		// 转换失败，处理错误，例如返回错误响应
 		response.Response(ctx, http.StatusBadRequest, 400, nil, "Invalid user ID format")
 		return
 	}
-	var requestUser = model.User{}
+
+	var requestUser model.User
 	ctx.Bind(&requestUser)
-	if len(requestUser.Telephone) != 11 {
-		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Phone number should be 11 digits")
-		return
-	}
-	if len(requestUser.Password) < 6 {
-		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Password too weak")
-		return
-	}
+
+	// 省略电话号码和其他字段的验证...
+
 	if len(requestUser.Name) == 0 {
 		requestUser.Name = util.RandomString(10)
 	}
 	if len(requestUser.Role) == 0 {
 		requestUser.Role = "user"
 	}
-	log.Println(requestUser.Name, requestUser.Telephone, requestUser.Password, requestUser.Role)
 
 	if isNewTelephoneExist(DB, requestUser.Telephone, uint(userIdInt)) {
 		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Telephone already in use by another user")
 		return
 	}
 
-	hasedPassword, err := bcrypt.GenerateFromPassword([]byte(requestUser.Password), bcrypt.DefaultCost)
-	if err != nil {
-		response.Response(ctx, http.StatusUnprocessableEntity, 500, nil, "Encryption error")
+	var updateData = map[string]interface{}{
+		"Name":      requestUser.Name,
+		"Telephone": requestUser.Telephone,
+		"Role":      requestUser.Role,
+	}
+
+	// 仅当提供了非空且长度足够的密码时，才更新密码
+	if len(requestUser.Password) >= 6 {
+		hasedPassword, err := bcrypt.GenerateFromPassword([]byte(requestUser.Password), bcrypt.DefaultCost)
+		if err != nil {
+			response.Response(ctx, http.StatusInternalServerError, 500, nil, "Encryption error")
+			return
+		}
+		updateData["Password"] = string(hasedPassword)
+	} else if len(requestUser.Password) > 0 {
+		// 密码长度不足，但不为空
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil, "Password too weak")
 		return
 	}
-	requestUser.Password = string(hasedPassword)
+
 	var user model.User
-	DB.First(&user, userIdStr)
+	DB.First(&user, userIdInt)
 	if user.ID == 0 {
 		response.Response(ctx, http.StatusNotFound, 404, nil, "User not found")
 		return
 	}
-	log.Println("LOG2:", user)
-	// 更新用户信息
-	DB.Model(&user).Updates(requestUser)
+
+	// 更新用户信息，除了可能的密码以外
+	DB.Model(&user).Updates(updateData)
 
 	response.Success(ctx, nil, "User updated successfully")
 }
