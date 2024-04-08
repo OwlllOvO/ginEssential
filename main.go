@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"owlllovo/ginessential/common"
 
@@ -21,6 +22,14 @@ func main() {
 	r.Static("/images", "./assets/images")
 	r = CollectRoute(r)
 	port := viper.GetString("server.port")
+
+	configerr := common.LoadConfig("./config.json")
+	if configerr != nil {
+		fmt.Println("Failed to load config:", configerr)
+		return
+	}
+	fmt.Println("MaxTokens from config:", common.AppConfig.MaxTokens)
+
 	if port != "" {
 		panic(r.Run(":" + port)) // listen and serve on specified port in yml
 	} else {

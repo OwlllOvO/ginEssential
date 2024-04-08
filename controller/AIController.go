@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"owlllovo/ginessential/common"
 	"path/filepath"
 )
 
@@ -22,6 +24,10 @@ func EncodeImageToBase64(imagePath string) (string, error) {
 	// 将图片内容编码为base64字符串
 	base64Image := base64.StdEncoding.EncodeToString(imageBytes)
 	return base64Image, nil
+}
+
+type Config struct {
+	MaxTokens int `json:"MaxTokens"`
 }
 
 func GetAIComment(imageFilename string) (string, error) {
@@ -54,6 +60,7 @@ func GetAIComment(imageFilename string) (string, error) {
 		Messages  []Message `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
 	}
+	fmt.Println("MaxTokens from config:", common.AppConfig.MaxTokens)
 
 	data := Payload{
 		Model: "gpt-4-vision-preview",
@@ -72,7 +79,7 @@ func GetAIComment(imageFilename string) (string, error) {
 				},
 			},
 		},
-		MaxTokens: 300,
+		MaxTokens: common.AppConfig.MaxTokens,
 	}
 
 	payloadBytes, err := json.Marshal(data)
