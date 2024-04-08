@@ -83,7 +83,7 @@ func (p PostController) Create(ctx *gin.Context) {
 
 	go func() {
 		var aiUser model.User
-		err := p.DB.Where("name = ?", "AI").FirstOrCreate(&aiUser, model.User{Name: "AI", Role: "AI"}).Error
+		err := p.DB.Where("name = ?", "GPT-4").FirstOrCreate(&aiUser, model.User{Name: "GPT-4", Role: "AI"}).Error
 		if err != nil {
 			log.Printf("Failed to ensure AI user exists: %v", err)
 			return

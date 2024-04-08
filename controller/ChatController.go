@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"log"
 	"owlllovo/ginessential/common"
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/response"
@@ -71,6 +72,45 @@ func (c *ChatController) SendMessage(ctx *gin.Context) {
 		return
 	}
 
+	// 检查接收者是否为"GPT-4"
+	var receiver model.User
+	if err := c.DB.First(&receiver, req.ReceiverID).Error; err != nil {
+		response.Fail(ctx, nil, "Receiver not found")
+		return
+	}
+	log.Println(req.PostID)
+	if receiver.Name == "GPT-4" {
+		// 如果接收者为"GPT-4"，则在 goroutine 中异步调用 AI 函数
+		go func() {
+			// 获取帖子信息以便于获取图片地址
+			var post model.Post
+			postID, _ := uuid.FromString(req.PostID) // 已经在外部检查过了，这里可以不再检查错误
+			if err := c.DB.First(&post, "id = ?", postID).Error; err != nil {
+				log.Printf("Post not found: %v", err)
+				return
+			}
+
+			// 调用 AI 函数获取评论
+			aiComment, err := GetGPTComment(post.HeadImg, req.Content)
+			if err != nil {
+				log.Printf("AI Comment failed: %v", err)
+				return
+			}
+
+			// 创建 AI 回复消息并保存到数据库
+			aiMessage := model.Message{
+				ChatID:   chat.ID,
+				SenderID: receiver.ID, // 假设 receiver.ID 是 AI 用户的 ID
+				Content:  aiComment,
+			}
+			if err := c.DB.Create(&aiMessage).Error; err != nil {
+				log.Printf("Failed to send AI message: %v", err)
+				return
+			}
+		}()
+	}
+
+	// 由于 AI 回复是异步的，这里直接响应消息发送成功
 	response.Success(ctx, nil, "Message sent successfully")
 }
 

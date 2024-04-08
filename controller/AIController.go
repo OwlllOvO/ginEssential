@@ -31,14 +31,13 @@ type Config struct {
 }
 
 func GetGPTComment(imageFilename, promptText string) (string, error) {
-	log.Println("Running GetAIComment for image:", imageFilename, "with prompt:", promptText)
+	log.Println("Running GetGPTComment for image:", imageFilename, "with prompt:", promptText)
 	imagePath := filepath.Join("assets", "images", imageFilename)
 	imageBase64, err := EncodeImageToBase64(imagePath)
 	if err != nil {
 		log.Printf("Error encoding image to base64: %v", err)
 		return "", err
 	}
-
 	type ImageURL struct {
 		URL string `json:"url"`
 	}
