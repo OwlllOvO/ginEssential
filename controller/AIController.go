@@ -30,15 +30,14 @@ type Config struct {
 	MaxTokens int `json:"MaxTokens"`
 }
 
-func GetAIComment(imageFilename string) (string, error) {
-	log.Println("Running GetAIComment")
+func GetGPTComment(imageFilename, promptText string) (string, error) {
+	log.Println("Running GetAIComment for image:", imageFilename, "with prompt:", promptText)
 	imagePath := filepath.Join("assets", "images", imageFilename)
 	imageBase64, err := EncodeImageToBase64(imagePath)
 	if err != nil {
 		log.Printf("Error encoding image to base64: %v", err)
 		return "", err
 	}
-	log.Println(imageBase64)
 
 	type ImageURL struct {
 		URL string `json:"url"`
@@ -60,6 +59,8 @@ func GetAIComment(imageFilename string) (string, error) {
 		Messages  []Message `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
 	}
+
+	// 使用配置中的 MaxTokens
 	fmt.Println("MaxTokens from config:", common.AppConfig.MaxTokens)
 
 	data := Payload{
@@ -70,7 +71,7 @@ func GetAIComment(imageFilename string) (string, error) {
 				Content: []Content{
 					{
 						Type: "text",
-						Text: "请对这幅儿童绘画作品给出评价，从作品内容、构图、技巧等方面进行评价，给出不足之处并提出改进建议",
+						Text: promptText,
 					},
 					{
 						Type:     "image_url",
@@ -132,8 +133,6 @@ func GetAIComment(imageFilename string) (string, error) {
 
 	var response Response
 	err = json.Unmarshal(body, &response)
-
-	log.Println(response)
 	if err != nil {
 		log.Printf("Error unmarshaling response: %v", err)
 		return "", err

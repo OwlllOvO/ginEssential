@@ -89,7 +89,8 @@ func (p PostController) Create(ctx *gin.Context) {
 			return
 		}
 
-		aiComment, err := GetAIComment(requestPost.HeadImg)
+		aiComment, err := GetGPTComment(requestPost.HeadImg, "请对这幅儿童绘画作品给出评价，从作品内容、构图、技巧等方面进行评价，给出不足之处并提出改进建议")
+
 		if err != nil {
 			log.Printf("Failed to get AI comment: %v", err)
 		} else {
