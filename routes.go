@@ -30,10 +30,13 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	postRoutes.DELETE("/:id", postController.Delete)
 	postRoutes.POST("/page/list", postController.PageList)
 	postRoutes.POST("/upload", postController.UploadImage)
-	postRoutes.POST("/:id/like", postController.LikePost)
-	postRoutes.POST("/:id/unlike", postController.UnlikePost)
-	postRoutes.GET("/:id/isliked", postController.IsLiked)
-	postRoutes.GET("/rank", postController.LikeRank)
+
+	// Like
+	LikeController := controller.NewLikeController()
+	postRoutes.POST("/:id/like", LikeController.LikePost)
+	postRoutes.POST("/:id/unlike", LikeController.UnlikePost)
+	postRoutes.GET("/:id/isliked", LikeController.IsLiked)
+	postRoutes.GET("/rank", LikeController.LikeRank)
 
 	r.GET("/user/:id", postController.GetUserPosts)
 
