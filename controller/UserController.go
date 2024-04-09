@@ -150,10 +150,7 @@ func Info(ctx *gin.Context) {
 func isTelephoneExist(db *gorm.DB, telephone string) bool {
 	var user model.User
 	db.Where("telephone = ?", telephone).First(&user)
-	if user.ID != 0 {
-		return true
-	}
-	return false
+	return user.ID != 0
 }
 
 func UpdateUser(ctx *gin.Context) {
@@ -218,10 +215,7 @@ func UpdateUser(ctx *gin.Context) {
 func isNewTelephoneExist(db *gorm.DB, telephone string, excludeUserId uint) bool {
 	var user model.User
 	db.Where("telephone = ? AND id <> ?", telephone, excludeUserId).First(&user)
-	if user.ID != 0 {
-		return true
-	}
-	return false
+	return user.ID != 0
 }
 
 func DeleteUser(ctx *gin.Context) {

@@ -76,7 +76,6 @@ func (p PostController) Create(ctx *gin.Context) {
 
 	if err := p.DB.Create(&post).Error; err != nil {
 		panic(err)
-		return
 	}
 
 	response.Success(ctx, nil, "Create Success")
