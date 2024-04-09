@@ -38,8 +38,9 @@ func CollectRoute(r *gin.Engine) *gin.Engine {
 	r.GET("/user/:id", postController.GetUserPosts)
 
 	// 添加评论相关的路由
-	postRoutes.POST("/:id/comments", postController.AddComment) // 添加评论
-	postRoutes.GET("/:id/comments", postController.GetComments) // 获取特定图书的所有评论
+	CommentController := controller.NewCommentController()
+	postRoutes.POST("/:id/comments", CommentController.AddComment) // 添加评论
+	postRoutes.GET("/:id/comments", CommentController.GetComments) // 获取特定图书的所有评论
 
 	adminRoutes := r.Group("/admin")
 	adminRoutes.Use(middleware.AdminAuthMiddleware())
