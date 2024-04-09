@@ -24,6 +24,12 @@ type IPostController interface {
 	GetUserPosts(ctx *gin.Context)
 }
 
+func NewPostController() IPostController {
+	db := common.GetDB()
+	db.AutoMigrate(&model.Post{})
+	return PostController{DB: db}
+}
+
 type PostController struct {
 	DB *gorm.DB
 }
@@ -302,12 +308,6 @@ func (p PostController) ApprovePost(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, gin.H{"post": post}, "Post approved successfully")
-}
-
-func NewPostController() IPostController {
-	db := common.GetDB()
-	db.AutoMigrate(&model.Post{})
-	return PostController{DB: db}
 }
 
 func (p PostController) GetUserPosts(ctx *gin.Context) {
