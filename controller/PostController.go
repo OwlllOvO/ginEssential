@@ -203,33 +203,22 @@ func (p PostController) Show(ctx *gin.Context) {
 }
 
 func (p PostController) Delete(ctx *gin.Context) {
-	// Get postId in path
-
+	// Get postId from path
 	postId := ctx.Params.ByName("id")
 
 	var post model.Post
 
-	/* Tutorial Error, Original:
-	if p.DB.Where("id = ?", postId).First(&post).RecordNotFound() {
-		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
-		return
-	}
-	*/
-
+	// Check if the post exists
 	result := p.DB.Where("id = ?", postId).First(&post)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		response.Fail(ctx, gin.H{"error": "Post does not exist"}, "")
 		return
 	} else if result.Error != nil {
-		// Handle other possible errors
 		response.Fail(ctx, gin.H{"error": "An unexpected error occurred"}, "")
 		return
 	}
 
-	// Chech if user is author of post
-
-	// Get logined user
-
+	// Check if the logged-in user is the author of the post or an Admin
 	user, _ := ctx.Get("user")
 	userId := user.(model.User).ID
 	if userId != post.UserId && user.(model.User).Role != "Admin" {
@@ -237,9 +226,41 @@ func (p PostController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	// Delete Post
+	// Start transaction
+	tx := p.DB.Begin()
 
-	p.DB.Delete(&post)
+	// Delete comments associated with the post
+	if err := tx.Where("post_id = ?", postId).Delete(&model.Comment{}).Error; err != nil {
+		tx.Rollback()
+		response.Fail(ctx, gin.H{"error": "Failed to delete comments"}, "")
+		return
+	}
+
+	// Assuming a similar model structure for likes and chats
+	// Delete likes associated with the post
+	if err := tx.Where("post_id = ?", postId).Delete(&model.Like{}).Error; err != nil {
+		tx.Rollback()
+		response.Fail(ctx, gin.H{"error": "Failed to delete likes"}, "")
+		return
+	}
+
+	// Delete chats associated with the post
+	if err := tx.Where("post_id = ?", postId).Delete(&model.Chat{}).Error; err != nil {
+		tx.Rollback()
+		response.Fail(ctx, gin.H{"error": "Failed to delete chats"}, "")
+		return
+	}
+
+	// Finally, delete the post
+	if err := tx.Delete(&post).Error; err != nil {
+		tx.Rollback()
+		response.Fail(ctx, gin.H{"error": "Failed to delete post"}, "")
+		return
+	}
+
+	// Commit the transaction
+	tx.Commit()
+
 	response.Success(ctx, gin.H{"post": post}, "Delete Success")
 }
 
