@@ -2,8 +2,11 @@ package controller
 
 import (
 	"errors"
+	"image"
+	"image/jpeg"
 	"log"
 	"net/http"
+	"os"
 	"owlllovo/ginessential/common"
 	"owlllovo/ginessential/model"
 	"owlllovo/ginessential/response"
@@ -11,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/fogleman/gg"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
@@ -283,6 +287,7 @@ func (p PostController) PageList(ctx *gin.Context) {
 }
 
 func (p PostController) UploadImage(ctx *gin.Context) {
+	username := ctx.PostForm("username") // Retrieve the username from form data
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -293,10 +298,46 @@ func (p PostController) UploadImage(ctx *gin.Context) {
 	ext := filepath.Ext(file.Filename)
 	newFileName := uuid.NewV4().String() + ext
 
-	// 保存文件
+	// 读取文件
+	srcFile, err := file.Open()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open the file"})
+		return
+	}
+	defer srcFile.Close()
+	// 解码图片
+	img, _, err := image.Decode(srcFile)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode the image"})
+		return
+	}
+
+	// 添加水印
+	dc := gg.NewContextForImage(img)
+	dc.SetRGBA(1, 1, 1, 0.5) // 设置水印颜色和透明度
+
+	// Set the font size - increase this to make the watermark larger
+	if err := dc.LoadFontFace("assets/fonts/MS.ttf", 50); err != nil { // Load your own font with the desired size
+		log.Println(2)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load font face"})
+		return
+	}
+
+	dc.DrawStringAnchored(username, float64(dc.Width())/2, float64(dc.Height())/2, 0.5, 0.5) // 中心位置
+	dc.Stroke()
+
+	// 创建文件路径
 	path := "assets/images/" + newFileName
-	if err := ctx.SaveUploadedFile(file, path); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	dstFile, err := os.Create(path)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create the file"})
+		return
+	}
+	defer dstFile.Close()
+
+	// 保存修改后的图片
+	if err := jpeg.Encode(dstFile, dc.Image(), &jpeg.Options{Quality: 100}); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save the watermarked image"})
 		return
 	}
 
