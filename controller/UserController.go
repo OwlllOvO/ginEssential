@@ -83,9 +83,11 @@ func Register(ctx *gin.Context) {
 		log.Printf("token generate error: %v", err)
 		return
 	}
+	var user model.User
+	DB.Where("telephone = ?", telephone).First(&user)
 
 	// return result
-	response.Success(ctx, gin.H{"token": token}, "Register Success")
+	response.Success(ctx, gin.H{"token": token, "userid": user.ID}, "Register Success")
 }
 
 func Login(ctx *gin.Context) {
