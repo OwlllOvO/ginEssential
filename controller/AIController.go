@@ -143,3 +143,65 @@ func GetGPTComment(imageFilename, promptText string) (string, error) {
 
 	return "", errors.New("no AI comment received")
 }
+
+func GetVisualGLMComment(imageFilename, promptText string) (string, error) {
+	log.Println("Calling VisualGLM for image:", imageFilename, "with description:", promptText)
+	imagePath := filepath.Join("assets", "images", imageFilename)
+	imageBase64, err := EncodeImageToBase64(imagePath)
+	if err != nil {
+		log.Printf("Error encoding image to base64: %v", err)
+		return "", err
+	}
+
+	// Prepare the JSON payload
+	type Payload struct {
+		Image   string   `json:"image"`
+		Text    string   `json:"text"`
+		History []string `json:"history"`
+	}
+
+	data := Payload{
+		Image:   imageBase64,
+		Text:    promptText,
+		History: []string{}, // This could be populated if there's contextual history needed
+	}
+
+	payloadBytes, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error marshaling data: %v", err)
+		return "", err
+	}
+
+	// Set up the HTTP request
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8080", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		log.Printf("Error creating request: %v", err)
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error making request: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	log.Printf("Response Status: %s", resp.Status)
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		log.Printf("Response Body: %s", string(bodyBytes))
+		return "", fmt.Errorf("API request failed with status %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %v", err)
+		return "", err
+	}
+
+	// Assume the response is plain text or modify this part if it's structured JSON
+	return string(body), nil
+}
