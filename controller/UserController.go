@@ -48,7 +48,7 @@ func Register(ctx *gin.Context) {
 		name = util.RandomString(10)
 	}
 	if len(role) == 0 {
-		role = "user"
+		role = "User"
 	}
 
 	log.Println(name, telephone, password, role)
